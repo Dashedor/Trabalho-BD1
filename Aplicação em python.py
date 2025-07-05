@@ -1,0 +1,90 @@
+import mysql.connector
+from mysql.connector import Error
+
+def conectar_banco():
+    try:
+        conexao = mysql.connector.connect(
+            host='localhost',
+            database='Banco_Imobiliaria',
+            user="root",
+            password="root"
+        )
+        if conexao.is_connected():
+            print("\nConexão bem sucedida!")
+            return conexao
+    except Error as e:
+        print(f"Erro ao conectar: {e}")
+        return None
+
+def executar_consulta(conexao, consulta):
+    cursor = conexao.cursor(dictionary=True)
+    try:
+        cursor.execute(consulta)
+        resultados = cursor.fetchall()
+        
+        if resultados:
+            print("\nResultados:")
+            for linha in resultados:
+                print(linha)
+        else:
+            print("\nConsulta executada, nenhum resultado retornado.")
+            
+    except Error as e:
+        print(f"Erro na consulta: {e}")
+    finally:
+         cursor.close()
+    input("\nPressione Enter para continuar...")
+
+def menu_consultas():
+    consultas = {
+        '1': "SELECT i.idImovel, e.bairro, e.logradouro, e.numero, i.valorSugerido FROM Imovel i JOIN Endereco e ON i.Endereco_idEndereco = e.idEndereco WHERE i.status = 'A venda';",
+        '2': "SELECT COUNT(c.idCasa) AS casas, COUNT(a.idCasa) AS apartamentos, COUNT(sc.idSala_Comercial) AS salas_comerciais, COUNT(t.idTerreno) AS terrenos FROM Imovel i LEFT JOIN Casa c ON i.idImovel = c.Imovel_idImovel LEFT JOIN Apartamento a ON i.idImovel = a.Imovel_idImovel LEFT JOIN Sala_Comercial sc ON i.idImovel = sc.Imovel_idImovel LEFT JOIN Terreno t ON i.idImovel = t.Imovel_idImovel;",
+        '3': "SELECT c.nome, c.cpf, COUNT(icp.Imovel_idImovel) AS total_imoveis FROM Cliente_Propietario cp JOIN Cliente c ON cp.Cliente_idCliente = c.idCliente LEFT JOIN Imovel_Cliente_Propietario icp ON cp.idCliente_Propietario = icp.Cliente_Propietario_idCliente_Propietario GROUP BY c.idCliente, c.nome, c.cpf;",
+        '4': "SELECT i.idImovel, e.bairro, e.logradouro, e.numero, i.valorSugerido, COUNT(av.idAgendar_Visita) AS total_visitas, DATEDIFF(CURRENT_DATE(), i.dataCadastro) AS dias_no_mercado FROM Imovel i JOIN Endereco e ON i.Endereco_idEndereco = e.idEndereco LEFT JOIN Agendar_Visita av ON i.idImovel = av.Imovel_idImovel WHERE i.status IN ('A venda', 'A locação') GROUP BY i.idImovel, e.bairro, e.logradouro, e.numero, i.valorSugerido, i.dataCadastro HAVING COUNT(av.idAgendar_Visita) > 0 ORDER BY total_visitas DESC, dias_no_mercado DESC;;",
+        '5': "SELECT i.idImovel, e.bairro, a.andar, a.valorCondominio FROM Apartamento a JOIN Imovel i ON a.Imovel_idImovel = i.idImovel JOIN Endereco e ON i.Endereco_idEndereco = e.idEndereco WHERE a.portaria_24h = 'Y';",
+        '6': "SELECT f.nome, f.cpf, c.nomeCargo, c.salarioBase FROM Funcionario f JOIN Cargo c ON f.Cargo_idCargo = c.idCargo ORDER BY c.nomeCargo, f.nome;",
+        '7': "SELECT i.idImovel, e.bairro, i.valorSugerido FROM Imovel i JOIN Endereco e ON i.Endereco_idEndereco = e.idEndereco WHERE i.valorSugerido > (SELECT AVG(valorSugerido) FROM Imovel);",
+        '8': "SELECT c.nome, c.cpf, c.email FROM Cliente c JOIN Cliente_Propietario cp ON c.idCliente = cp.Cliente_idCliente JOIN Cliente_Usuario cu ON c.idCliente = cu.Cliente_idCliente;",
+        '9': "SELECT i.idImovel, e.bairro, t.area, t.largura, t.comprimento FROM Terreno t JOIN Imovel i ON t.Imovel_idImovel = i.idImovel JOIN Endereco e ON i.Endereco_idEndereco = e.idEndereco WHERE t.area > 500;",
+        '10': "SELECT av.idAgendar_Visita, av.data, c.nome AS cliente, f.nome AS funcionario FROM Agendar_Visita av JOIN Cliente_Usuario cu ON av.Cliente_Usuario_idCliente_Usuario = cu.idCliente_Usuario JOIN Cliente c ON cu.Cliente_idCliente = c.idCliente JOIN Funcionario f ON av.Funcionario_idFuncionario = f.idFuncionario WHERE STR_TO_DATE(av.data, '%Y-%m-%d') = CURRENT_DATE();"
+    }
+    
+    print("\n=== CONSULTAS DISPONÍVEIS ===")
+    print("1. Imóveis disponíveis para venda")
+    print("2. Contagem de imóveis por tipo")
+    print("3. Clientes proprietários e quantos imóveis possuem")
+    print("4. Imóveis mais visitados que não foram vendidos/alugados")
+    print("5. Apartamentos com portaria 24h")
+    print("6. Funcionários e seus cargos")
+    print("7. Imóveis com valor acima da média")
+    print("8. Clientes que são usuários e proprietários")
+    print("9. Terrenos com área maior que 500m²")
+    print("10. Visitas agendadas para hoje")
+    print("0. Sair")
+    
+    return consultas
+
+def main():
+    conexao = conectar_banco()
+    if not conexao:
+        return
+    
+    try:
+        while True:
+            consultas = menu_consultas()
+            opcao = input("\nEscolha uma consulta (1-10) ou 0 para sair: ")
+            
+            if opcao == '0':
+                break
+            elif opcao in consultas:
+                executar_consulta(conexao, consultas[opcao])
+            else:
+                print("Opção inválida. Tente novamente.")
+                
+    finally:
+        if conexao.is_connected():
+            conexao.close()
+            print("\nConexão encerrada.")
+
+if __name__ == "__main__":
+    main()
